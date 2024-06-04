@@ -96,8 +96,9 @@ app.post('/grabinfopark', (req, res) => {
         FROM Estacionamientos
         JOIN inter ON Estacionamientos.Condominios_Edificios_ID = inter.Condominio_Edificio_ID
         JOIN Acceso ON inter.Acceso_Rut = Acceso.Rut
-        WHERE Acceso.Rut = ?
-        `;
+        LEFT JOIN Estacionamiento_Visitas ON Estacionamientos.ID = Estacionamiento_Visitas.Estacionamientos_ID
+        WHERE Acceso.Rut = ? AND Estacionamiento_Visitas.ID IS NULL
+    `;
 
     db.query(sql, req.body.id, (err, result) => {
         if (err) {
@@ -106,6 +107,7 @@ app.post('/grabinfopark', (req, res) => {
         return res.json(result);
     });
 });
+
 
 app.post('/grabinfodepto', (req, res) => {
     const sql = `
@@ -153,6 +155,57 @@ app.post('/login', (req, res) => {
         }
     });
 });
+
+
+app.post('/addParkVisit', (req, res) => {
+    const { patente, deptoID, estacionamientoID } = req.body;
+    // Obtener el timestamp actual
+    const tiempoDeEntrada = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    // Realizar la inserción en la tabla Estacionamiento_Visitas
+    const sql = "INSERT INTO Estacionamiento_Visitas (Estacionamientos_ID, Deptos_Casas_ID, Patente, Tiempo_de_Entrada) VALUES (?, ?, ?, ?)";
+    const values = [estacionamientoID, deptoID, patente, tiempoDeEntrada];
+
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json({ status: "Success", message: "Visita agregada correctamente" });
+    });
+});
+
+app.get('/occupiedParking', (req, res) => {
+    const sql = `
+        SELECT Estacionamientos.Numero AS 'Numero de Estacionamiento', 
+               Depto_Casas.Numero AS 'Numero de Departamento', 
+               Estacionamiento_Visitas.Patente, 
+               Estacionamiento_Visitas.Tiempo_de_Entrada,
+               Estacionamiento_Visitas.ID
+        FROM Estacionamiento_Visitas
+        JOIN Estacionamientos ON Estacionamientos.ID = Estacionamiento_Visitas.Estacionamientos_ID
+        JOIN Depto_Casas ON Depto_Casas.ID = Estacionamiento_Visitas.Deptos_Casas_ID
+    `;
+
+    db.query(sql, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json(result);
+    });
+});
+
+app.delete('/deletevisit/:visitId', (req, res) => {
+    const visitId = req.params.visitId;
+    const sql = "DELETE FROM Estacionamiento_Visitas WHERE ID = ?";
+    
+    db.query(sql, visitId, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json({ status: "Success", message: "Registro eliminado correctamente" });
+    });
+  });
+  
 
 
 app.listen(8081, () => {
