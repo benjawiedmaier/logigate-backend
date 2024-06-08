@@ -4,7 +4,7 @@ const cors = require('cors');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
-
+const nodemailer = require('nodemailer');
 const app = express();
 app.use(cors()) 
 app.use(express.json());
@@ -194,6 +194,8 @@ app.get('/occupiedParking', (req, res) => {
     });
 });
 
+
+
 app.delete('/deletevisit/:visitId', (req, res) => {
     const visitId = req.params.visitId;
     const sql = "DELETE FROM Estacionamiento_Visitas WHERE ID = ?";
@@ -204,8 +206,168 @@ app.delete('/deletevisit/:visitId', (req, res) => {
         }
         return res.json({ status: "Success", message: "Registro eliminado correctamente" });
     });
-  });
+});
   
+app.post('/maxParkingTime', (req, res) => {
+    const userId = req.body.id; // ID del usuario guardado en el local storage
+    const sql = `
+        SELECT Tiempo_max
+        FROM Condominio_Edificio
+        JOIN inter ON Condominio_Edificio.ID = inter.Condominio_Edificio_ID
+        JOIN Acceso ON inter.Acceso_Rut = Acceso.Rut
+        WHERE Acceso.Rut = ?
+    `;
+
+    db.query(sql, userId, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        if (result.length > 0) {
+            const maxParkingTime = result[0].Tiempo_max;
+            return res.json({ status: "Success", maxParkingTime });
+        } else {
+            return res.json({ status: "Error", message: "Usuario no encontrado en condominio" });
+        }
+    });
+});
+
+app.get('/checkOvertime', verifyJwt, (req, res) => {
+    const userRut = req.userRut;
+    
+    const sql = `
+        SELECT Estacionamientos.Numero AS 'Numero de Estacionamiento', 
+               Depto_Casas.Numero AS 'Numero de Departamento', 
+               Estacionamiento_Visitas.Patente, 
+               Estacionamiento_Visitas.Tiempo_de_Entrada,
+               Estacionamiento_Visitas.ID,
+               Condominio_Edificio.Tiempo_max
+        FROM Estacionamiento_Visitas
+        JOIN Estacionamientos ON Estacionamientos.ID = Estacionamiento_Visitas.Estacionamientos_ID
+        JOIN Depto_Casas ON Depto_Casas.ID = Estacionamiento_Visitas.Deptos_Casas_ID
+        JOIN Condominio_Edificio ON Estacionamientos.Condominios_Edificios_ID = Condominio_Edificio.ID
+        JOIN inter ON Estacionamientos.Condominios_Edificios_ID = inter.Condominio_Edificio_ID
+        WHERE inter.Acceso_Rut = ?
+    `;
+
+    db.query(sql, userRut, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+
+        const currentTime = new Date();
+        const overtimeEntries = result.filter(entry => {
+            const entryTime = new Date(entry.Tiempo_de_Entrada);
+            const diffMinutes = (currentTime - entryTime) / (1000 * 60);
+            return diffMinutes > entry.Tiempo_max;
+        });
+
+        return res.json({ status: "Success", overtimeEntries });
+    });
+});
+
+app.post('/addPackage', (req, res) => {
+    const { descripcion, deptoID } = req.body;
+    const tiempoDeEntrada = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  
+    const sql = "INSERT INTO Paquetes (Descripción, Deptos_Casas_ID, Tiempo_de_entrada) VALUES (?, ?, ?)";
+    const values = [descripcion, deptoID, tiempoDeEntrada];
+  
+    db.query(sql, values, (err, result) => {
+      if (err) {
+        return res.json({ status: "Error", message: err });
+      }
+      return res.json({ status: "Success", message: "Paquete agregado correctamente" });
+    });
+});
+  
+app.get('/getPackages', (req, res) => {
+    const sql = "SELECT P.*, DC.Numero AS NumeroDepartamento FROM Paquetes AS P INNER JOIN Depto_Casas AS DC ON P.Deptos_Casas_ID = DC.ID WHERE P.Estado = 'no entregado'";
+
+    db.query(sql, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json(result);
+    });
+});
+
+
+
+
+
+  
+app.delete('/deletePackage/:packageId', (req, res) => {
+    const packageId = req.params.packageId;
+    const sql = "DELETE FROM Paquetes WHERE ID = ?";
+  
+    db.query(sql, packageId, (err, result) => {
+      if (err) {
+        return res.json({ status: "Error", message: err });
+      }
+      return res.json({ status: "Success", message: "Paquete eliminado correctamente" });
+    });
+});
+
+app.put('/deliverPackage/:packageId', (req, res) => {
+    const packageId = req.params.packageId;
+    const tiempoDeSalida = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    const sql = "UPDATE Paquetes SET Estado = 'entregado', Tiempo_de_salida = ? WHERE ID = ?";
+    const values = [tiempoDeSalida, packageId];
+
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json({ status: "Success", message: "Paquete marcado como entregado" });
+    });
+});
+
+// Función para enviar el correo electrónico
+function sendEmail(to, subject, body) {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: 'logi.gate.alert@gmail.com',
+            pass: 'fssg axkd ibzq ymyc'
+        }
+    });
+
+    const mailOptions = {
+        from: 'tu_correo@gmail.com',
+        to: to,
+        subject: subject,
+        text: body
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            console.error("Error al enviar el correo electrónico:", error);
+        } else {
+            console.log("Correo electrónico enviado:", info.response);
+        }
+    });
+}
+
+function sendPackageEmail(deptoID, descripcion) {
+    const sql = "SELECT Residentes.Correo FROM Residentes INNER JOIN Depto_Casas ON Residentes.Deptos_Casas_ID = Depto_Casas.ID WHERE Depto_Casas.ID = ?";
+    db.query(sql, deptoID, (err, result) => {
+        if (err) {
+            console.error("Error al obtener el correo electrónico del residente:", err);
+            return;
+        }
+
+        const residentEmail = result[0].Correo;
+        console.log(residentEmail);
+        sendEmail(residentEmail, "Nuevo paquete recibido", descripcion);
+    });
+}
+
+app.post('/sendPackageEmail', (req, res) => {
+    const { deptoID, descripcion } = req.body;
+    sendPackageEmail(deptoID, descripcion); // Llama a la función para enviar el correo electrónico al residente
+    res.json({ status: "Success", message: "Correo electrónico enviado al residente" });
+});
 
 
 app.listen(8081, () => {
