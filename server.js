@@ -157,6 +157,7 @@ app.post('/login', (req, res) => {
     });
 });
 
+//Seccion estacionamiento
 
 app.post('/addParkVisit', (req, res) => {
     const { patente, deptoID, estacionamientoID } = req.body;
@@ -189,6 +190,37 @@ app.get('/occupiedParking', (req, res) => {
     `;
 
     db.query(sql, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json(result);
+    });
+});
+
+app.get('/occupiedParkingid', (req, res) => {
+    const userRut = req.query.userRut;
+    console.log(userRut)
+    if (!userRut) {
+        return res.json({ status: "Error", message: "El campo userRut es obligatorio" });
+    }
+
+    const sql = `
+        SELECT Estacionamientos.Numero AS 'Numero de Estacionamiento', 
+               Depto_Casas.Numero AS 'Numero de Departamento', 
+               Estacionamiento_Visitas.Patente, 
+               Estacionamiento_Visitas.Tiempo_de_Entrada,
+               Estacionamiento_Visitas.ID
+        FROM Estacionamiento_Visitas
+        JOIN Estacionamientos ON Estacionamientos.ID = Estacionamiento_Visitas.Estacionamientos_ID
+        JOIN Depto_Casas ON Depto_Casas.ID = Estacionamiento_Visitas.Deptos_Casas_ID
+        JOIN Condominio_Edificio ON Condominio_Edificio.ID = Estacionamientos.Condominios_Edificios_ID
+        JOIN inter ON inter.Condominio_Edificio_ID = Condominio_Edificio.ID
+        JOIN Acceso ON Acceso.Rut = inter.Acceso_Rut
+        WHERE Estacionamiento_Visitas.Tiempo_de_salida IS NULL
+          AND Acceso.Rut = ?
+    `;
+
+    db.query(sql, [userRut], (err, result) => {
         if (err) {
             return res.json({ status: "Error", message: err });
         }
@@ -281,6 +313,8 @@ app.get('/checkOvertime', verifyJwt, (req, res) => {
         return res.json({ status: "Success", overtimeEntries });
     });
 });
+
+// seccion paquetes
 
 app.post('/addPackage', (req, res) => {
     const { descripcion, deptoID } = req.body;
