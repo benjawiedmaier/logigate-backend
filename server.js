@@ -94,10 +94,11 @@ app.post('/grabinfopark', (req, res) => {
     const sql = `
         SELECT Estacionamientos.ID, Estacionamientos.Numero
         FROM Estacionamientos
-        JOIN inter ON Estacionamientos.Condominios_Edificios_ID = inter.Condominio_Edificio_ID
-        JOIN Acceso ON inter.Acceso_Rut = Acceso.Rut
-        LEFT JOIN Estacionamiento_Visitas ON Estacionamientos.ID = Estacionamiento_Visitas.Estacionamientos_ID
-        WHERE Acceso.Rut = ? AND Estacionamiento_Visitas.ID IS NULL
+        WHERE Estacionamientos.ID NOT IN (
+            SELECT Estacionamientos_ID
+            FROM Estacionamiento_Visitas
+            WHERE Tiempo_de_salida IS NULL
+        )
     `;
 
     db.query(sql, req.body.id, (err, result) => {
@@ -184,6 +185,7 @@ app.get('/occupiedParking', (req, res) => {
         FROM Estacionamiento_Visitas
         JOIN Estacionamientos ON Estacionamientos.ID = Estacionamiento_Visitas.Estacionamientos_ID
         JOIN Depto_Casas ON Depto_Casas.ID = Estacionamiento_Visitas.Deptos_Casas_ID
+        WHERE Estacionamiento_Visitas.Tiempo_de_salida IS NULL
     `;
 
     db.query(sql, (err, result) => {
@@ -194,6 +196,21 @@ app.get('/occupiedParking', (req, res) => {
     });
 });
 
+
+app.put('/checkout/:visitId', (req, res) => {
+    const visitId = req.params.visitId;
+    const tiempoDeSalida = new Date();
+
+    const sql = "UPDATE Estacionamiento_Visitas SET Tiempo_de_salida = ? WHERE ID = ?";
+    const values = [tiempoDeSalida, visitId];
+
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json({ status: "Success", message: "Hora de salida agregada correctamente" });
+    });
+});
 
 
 app.delete('/deletevisit/:visitId', (req, res) => {
@@ -267,7 +284,9 @@ app.get('/checkOvertime', verifyJwt, (req, res) => {
 
 app.post('/addPackage', (req, res) => {
     const { descripcion, deptoID } = req.body;
-    const tiempoDeEntrada = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const tiempoDeEntrada = new Date();
+    //const tiempoDeEntrada = new Date(ahora.getTime() + (ahora.getTimezoneOffset() * 60000));
+    
   
     const sql = "INSERT INTO Paquetes (Descripción, Deptos_Casas_ID, Tiempo_de_entrada) VALUES (?, ?, ?)";
     const values = [descripcion, deptoID, tiempoDeEntrada];
@@ -310,7 +329,9 @@ app.delete('/deletePackage/:packageId', (req, res) => {
 
 app.put('/deliverPackage/:packageId', (req, res) => {
     const packageId = req.params.packageId;
-    const tiempoDeSalida = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const ahora = new Date();
+    //const tiempoDeSalida = new Date(ahora.getTime() + (ahora.getTimezoneOffset() * 60000));
+    const tiempoDeSalida = new Date();
 
     const sql = "UPDATE Paquetes SET Estado = 'entregado', Tiempo_de_salida = ? WHERE ID = ?";
     const values = [tiempoDeSalida, packageId];
@@ -369,6 +390,64 @@ app.post('/sendPackageEmail', (req, res) => {
     res.json({ status: "Success", message: "Correo electrónico enviado al residente" });
 });
 
+//seccion visitas
+app.post('/createVisit', (req, res) => {
+    const { rut, nombre, categoriaID, edificioID } = req.body;
+    const ultimaVisita = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    const sql = `
+        INSERT INTO Visitas (Rut, Nombre, Contador, Ultima_visita, Condominios_Edificios_ID, Categoria_ID)
+        VALUES (?, ?, 0, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE Contador = Contador + 1, Ultima_visita = VALUES(Ultima_visita)`;
+
+    const values = [rut, nombre, ultimaVisita, edificioID, categoriaID];
+
+    db.query(sql, values, (err, result) => {
+        if (err) {
+            return sendResponse(res, "Error", err);
+        }
+        return sendResponse(res, "Success", "Visita agregada correctamente");
+    });
+});
+
+app.post('/last5Visits', (req, res) => {
+    const { edificioID } = req.body;
+
+    const sql = `
+        SELECT * FROM Visitas
+        WHERE Condominios_Edificios_ID = ?
+        ORDER BY Ultima_visita DESC
+        LIMIT 5`;
+
+    db.query(sql, [edificioID], (err, result) => {
+        if (err) {
+            return sendResponse(res, "Error", err);
+        }
+        return sendResponse(res, "Success", "Data retrieved", result);
+    });
+});
+
+// Obtener el ID del edificio relacionado al acceso
+app.post('/getEdificioID', (req, res) => {
+    const { userId } = req.body;
+
+    const sql = `
+        SELECT inter.Condominio_Edificio_ID
+        FROM inter
+        INNER JOIN Acceso ON inter.Acceso_Rut = Acceso.Rut
+        WHERE Acceso.Rut = ?`;
+
+    db.query(sql, [userId], (err, result) => {
+        if (err) {
+            return res.status(500).json({ message: "Error retrieving building ID", error: err });
+        }
+        if (result.length > 0) {
+            return res.status(200).json({ message: "Success", edificioID: result[0].Condominio_Edificio_ID });
+        } else {
+            return res.status(404).json({ message: "Building ID not found for this user" });
+        }
+    });
+});
 
 app.listen(8081, () => {
     console.log('Listening');
