@@ -199,7 +199,6 @@ app.get('/occupiedParking', (req, res) => {
 
 app.get('/occupiedParkingid', (req, res) => {
     const userRut = req.query.userRut;
-    console.log(userRut)
     if (!userRut) {
         return res.json({ status: "Error", message: "El campo userRut es obligatorio" });
     }
@@ -344,6 +343,25 @@ app.get('/getPackages', (req, res) => {
     });
 });
 
+app.get('/getPackagesid', (req, res) => {
+    const userRut = req.query.userRut;
+    const sql = `
+        SELECT P.*, DC.Numero AS NumeroDepartamento 
+        FROM Paquetes AS P 
+        INNER JOIN Depto_Casas AS DC ON P.Deptos_Casas_ID = DC.ID 
+        INNER JOIN Inter AS I ON DC.ID = I.Condominio_Edificio_ID
+        WHERE P.Estado = 'no entregado' 
+        AND I.Acceso_Rut = ?;
+        `;
+
+    db.query(sql, [userRut], (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json(result);
+    });
+});
+
 
 
 
@@ -378,6 +396,23 @@ app.put('/deliverPackage/:packageId', (req, res) => {
     });
 });
 
+app.get('/residents/:deptoID', (req, res) => {
+    const deptoID = req.params.deptoID;
+    
+    const sql = `
+        SELECT *
+        FROM Residentes
+        WHERE Deptos_Casas_ID = ?
+    `;
+    
+    db.query(sql, [deptoID], (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json(result);
+    });
+});
+
 // Función para enviar el correo electrónico
 function sendEmail(to, subject, body) {
     const transporter = nodemailer.createTransport({
@@ -404,7 +439,7 @@ function sendEmail(to, subject, body) {
     });
 }
 
-function sendPackageEmail(deptoID, descripcion) {
+function sendPackageEmail(deptoID, descripcion, correo_usuario) {
     const sql = "SELECT Residentes.Correo FROM Residentes INNER JOIN Depto_Casas ON Residentes.Deptos_Casas_ID = Depto_Casas.ID WHERE Depto_Casas.ID = ?";
     db.query(sql, deptoID, (err, result) => {
         if (err) {
@@ -413,14 +448,15 @@ function sendPackageEmail(deptoID, descripcion) {
         }
 
         const residentEmail = result[0].Correo;
-        console.log(residentEmail);
-        sendEmail(residentEmail, "Nuevo paquete recibido", descripcion);
+        console.log(correo_usuario);
+        sendEmail(correo_usuario, "Nuevo paquete recibido", descripcion);
     });
 }
 
 app.post('/sendPackageEmail', (req, res) => {
-    const { deptoID, descripcion } = req.body;
-    sendPackageEmail(deptoID, descripcion); // Llama a la función para enviar el correo electrónico al residente
+    const { deptoID, descripcion, correos_usuarios } = req.body;
+    console.log(correos_usuarios)
+    sendPackageEmail(deptoID, descripcion, correos_usuarios); // Llama a la función para enviar el correo electrónico al residente
     res.json({ status: "Success", message: "Correo electrónico enviado al residente" });
 });
 
