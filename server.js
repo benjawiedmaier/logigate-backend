@@ -4,6 +4,11 @@ const cors = require('cors');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
+const twilio = require('twilio');
+const accountSid = 'AC9b22e297f50cabf5e51fb0c06968f331'; // Tu Account SID de Twilio
+const authToken = '89df02f4414facdf45087840df75deae';   // Tu Auth Token de Twilio
+const client = new twilio(accountSid, authToken);
+
 const nodemailer = require('nodemailer');
 const app = express();
 app.use(cors()) 
@@ -453,10 +458,36 @@ function sendPackageEmail(deptoID, descripcion, correo_usuario) {
     });
 }
 
+function sendWhatsApp(to, body) {
+    client.messages.create({
+        body: body,
+        from: 'whatsapp:+14155238886', // El número de Twilio Sandbox para WhatsApp
+        to: `whatsapp:${to}` // El número de destino debe tener el prefijo 'whatsapp:'
+    })
+    .then(message => console.log("Mensaje de WhatsApp enviado:", message.sid))
+    .catch(error => console.error("Error al enviar el mensaje de WhatsApp:", error));
+}
+
+function sendPackageWhatsApp(deptoID, descripcion, phoneNumbers) {
+    console.log(phoneNumbers);
+    const messageBody = "Nuevo paquete recibido: " + descripcion;
+
+    if (Array.isArray(phoneNumbers)) {
+        phoneNumbers.forEach(phoneNumber => {
+            sendWhatsApp(phoneNumber, messageBody);
+        });
+    } else {
+        sendWhatsApp(phoneNumbers, messageBody);
+    }
+}
+
+
 app.post('/sendPackageEmail', (req, res) => {
-    const { deptoID, descripcion, correos_usuarios } = req.body;
+    const { deptoID, descripcion, correos_usuarios, telefonos_usuarios} = req.body;
     console.log(correos_usuarios)
+    console.log(telefonos_usuarios)
     sendPackageEmail(deptoID, descripcion, correos_usuarios); // Llama a la función para enviar el correo electrónico al residente
+    sendPackageWhatsApp(deptoID, descripcion, telefonos_usuarios);
     res.json({ status: "Success", message: "Correo electrónico enviado al residente" });
 });
 
