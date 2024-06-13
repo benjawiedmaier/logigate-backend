@@ -492,7 +492,7 @@ app.post('/sendPackageEmail', (req, res) => {
 function addNewVisit(rut, nombre, edificioID, categoriaID, callback) {
     const sql = `
         INSERT INTO Visitas (Rut, Nombre, Contador, Ultima_visita, Condominios_Edificios_ID, Categoria_ID)
-        VALUES (?, ?, 0, NOW(), ?, ?)
+        VALUES (?, ?, 1, NOW(), ?, ?)
     `;
     const values = [rut, nombre, edificioID, categoriaID];
 
@@ -539,7 +539,7 @@ function checkVisit(rut, edificioId, callback) {
 function incrementVisitCounter(rut, edificioId, callback) {
     const sql = `
         UPDATE Visitas
-        SET Contador = Contador + 1
+        SET Contador = Contador + 1, Ultima_visita = NOW()
         WHERE Rut = ? AND Condominios_Edificios_ID = ?
     `;
     const values = [rut, edificioId];
@@ -549,12 +549,13 @@ function incrementVisitCounter(rut, edificioId, callback) {
             return callback(err, null);
         }
         if (results.affectedRows > 0) {
-            return callback(null, { status: "Success", message: "Contador actualizado" });
+            return callback(null, { status: "Success", message: "Contador y última visita actualizados" });
         } else {
             return callback(null, { status: "Not Found", message: "Visita no encontrada" });
         }
     });
 }
+
 
 function checkAndIncrementVisitCounter(rut, edificioId, callback) {
     checkVisit(rut, edificioId, (err, visit) => {
