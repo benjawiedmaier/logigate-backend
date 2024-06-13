@@ -367,10 +367,6 @@ app.get('/getPackagesid', (req, res) => {
     });
 });
 
-
-
-
-
   
 app.delete('/deletePackage/:packageId', (req, res) => {
     const packageId = req.params.packageId;
@@ -492,46 +488,122 @@ app.post('/sendPackageEmail', (req, res) => {
 });
 
 //seccion visitas
-app.post('/createVisit', (req, res) => {
-    const { rut, nombre, categoriaID, edificioID } = req.body;
-    const ultimaVisita = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
+function addNewVisit(rut, nombre, edificioID, categoriaID, callback) {
     const sql = `
         INSERT INTO Visitas (Rut, Nombre, Contador, Ultima_visita, Condominios_Edificios_ID, Categoria_ID)
-        VALUES (?, ?, 0, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE Contador = Contador + 1, Ultima_visita = VALUES(Ultima_visita)`;
-
-    const values = [rut, nombre, ultimaVisita, edificioID, categoriaID];
+        VALUES (?, ?, 0, NOW(), ?, ?)
+    `;
+    const values = [rut, nombre, edificioID, categoriaID];
 
     db.query(sql, values, (err, result) => {
         if (err) {
-            return sendResponse(res, "Error", err);
+            return callback(err, null);
         }
-        return sendResponse(res, "Success", "Visita agregada correctamente");
+        return callback(null, result);
+    });
+}
+
+// Añadimos una nueva ruta para manejar la solicitud de agregar una nueva visita
+app.post('/addNewVisit', (req, res) => {
+    const { rut, nombre, edificioID, categoriaID } = req.body;
+
+    addNewVisit(rut, nombre, edificioID, categoriaID, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err.message });
+        }
+        return res.json({ status: "Success", message: "Visita agregada correctamente" });
     });
 });
 
-app.post('/last5Visits', (req, res) => {
-    const { edificioID } = req.body;
-
+function checkVisit(rut, edificioId, callback) {
     const sql = `
-        SELECT * FROM Visitas
-        WHERE Condominios_Edificios_ID = ?
-        ORDER BY Ultima_visita DESC
-        LIMIT 5`;
+        SELECT Contador, Categoria_ID
+        FROM Visitas
+        WHERE Rut = ? AND Condominios_Edificios_ID = ?
+    `;
+    const values = [rut, edificioId];
 
-    db.query(sql, [edificioID], (err, result) => {
+    db.query(sql, values, (err, results) => {
         if (err) {
-            return sendResponse(res, "Error", err);
+            return callback(err, null);
         }
-        return sendResponse(res, "Success", "Data retrieved", result);
+        if (results.length > 0) {
+            return callback(null, results[0]); // Devolvemos el primer resultado encontrado
+        } else {
+            return callback(null, null); // No se encontró ninguna visita
+        }
+    });
+}
+
+function incrementVisitCounter(rut, edificioId, callback) {
+    const sql = `
+        UPDATE Visitas
+        SET Contador = Contador + 1
+        WHERE Rut = ? AND Condominios_Edificios_ID = ?
+    `;
+    const values = [rut, edificioId];
+
+    db.query(sql, values, (err, results) => {
+        if (err) {
+            return callback(err, null);
+        }
+        if (results.affectedRows > 0) {
+            return callback(null, { status: "Success", message: "Contador actualizado" });
+        } else {
+            return callback(null, { status: "Not Found", message: "Visita no encontrada" });
+        }
+    });
+}
+
+function checkAndIncrementVisitCounter(rut, edificioId, callback) {
+    checkVisit(rut, edificioId, (err, visit) => {
+        if (err) {
+            return callback(err, null);
+        }
+        if (visit) {
+            incrementVisitCounter(rut, edificioId, (err, result) => {
+                if (err) {
+                    return callback(err, null);
+                }
+                return callback(null, result);
+            });
+        } else {
+            return callback(null, { status: "Not Found", message: "Visita no encontrada" });
+        }
+    });
+}
+
+app.post('/checkAndIncrementVisitCounter', (req, res) => {
+    const { rut, edificioId } = req.body;
+
+    checkAndIncrementVisitCounter(rut, edificioId, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err.message });
+        }
+        return res.json(result);
+    });
+});
+// Ruta para manejar la verificación de visitas
+app.post('/checkVisit', (req, res) => {
+    const { rut, edificioId } = req.body;
+
+    checkVisit(rut, edificioId, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err.message });
+        }
+        if (result) {
+            return res.json({ status: "Success", contador: result.Contador, categoriaID: result.Categoria_ID });
+        } else {
+            return res.json({ status: "Not Found", message: "Visita no encontrada" });
+        }
     });
 });
 
 // Obtener el ID del edificio relacionado al acceso
-app.post('/getEdificioID', (req, res) => {
-    const { userId } = req.body;
-
+app.get('/getEdificioId', (req, res) => {
+    const userId = req.query.userId;
+    console.log(userId)
     const sql = `
         SELECT inter.Condominio_Edificio_ID
         FROM inter
@@ -542,13 +614,27 @@ app.post('/getEdificioID', (req, res) => {
         if (err) {
             return res.status(500).json({ message: "Error retrieving building ID", error: err });
         }
-        if (result.length > 0) {
+        if (result.length > 0) { // Corrección aquí
             return res.status(200).json({ message: "Success", edificioID: result[0].Condominio_Edificio_ID });
         } else {
-            return res.status(404).json({ message: "Building ID not found for this user" });
+            return res.status(405).json({ message: "Building ID not found for this user" });
         }
     });
 });
+
+
+app.get('/getCategorias', (req, res) => {
+    const sql = "SELECT * FROM Categoria;";
+
+    db.query(sql, (err, result) => {
+        if (err) {
+            return res.json({ status: "Error", message: err });
+        }
+        return res.json(result);
+    });
+});
+
+
 
 app.listen(8081, () => {
     console.log('Listening');
