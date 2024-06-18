@@ -4,10 +4,6 @@ const cors = require('cors');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
-const axios = require('axios');
-const multer = require('multer');
-const { ImageAnnotatorClient } = require('@google-cloud/vision');
-
 
 const twilio = require('twilio');
 const accountSid = 'AC9b22e297f50cabf5e51fb0c06968f331'; // Tu Account SID de Twilio
