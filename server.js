@@ -354,8 +354,9 @@ app.get('/getPackagesid', (req, res) => {
     const sql = `
         SELECT P.*, DC.Numero AS NumeroDepartamento 
         FROM Paquetes AS P 
-        INNER JOIN Depto_Casas AS DC ON P.Deptos_Casas_ID = DC.ID 
-        INNER JOIN Inter AS I ON DC.ID = I.Condominio_Edificio_ID
+        JOIN Depto_Casas AS DC ON P.Deptos_Casas_ID = DC.ID 
+        JOIN Condominio_Edificio AS CE ON DC.Condominios_Edificios_ID = CE.ID
+        JOIN Inter AS I ON CE.ID = I.Condominio_Edificio_ID
         WHERE P.Estado = 'no entregado' 
         AND I.Acceso_Rut = ?;
         `;
