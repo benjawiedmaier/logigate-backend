@@ -19,10 +19,10 @@ jobs:
         with:
           submodules: true
           lfs: false
-      - name: Set up Node.js
+      - name: Set up Node.js 20.x
         uses: actions/setup-node@v2
         with:
-          node-version: '20.x' # Actualiza a la versión 20 de Node.js o superior
+          node-version: '20.x'
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
@@ -30,12 +30,12 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_KIND_ROCK_0513CCF0F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
-          # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "/" # App source code path
-          api_location: "" # Api source code path - optional
-          output_location: "" # Built app content directory - optional
-          ###### End of Repository/Build Configurations ######
+          app_location: "/" # Ruta de la aplicación
+          ###### Configuraciones del Repositorio/Construcción - Estos valores se pueden configurar según los requisitos de tu aplicación. ######
+          # Para obtener más información sobre las configuraciones del flujo de trabajo de Static Web App, visita: https://aka.ms/swaworkflowconfig
+          api_location: "" # Ruta del código fuente del API - opcional
+          output_location: "" # Directorio de contenido de la aplicación construida - opcional
+          ###### Fin de las Configuraciones del Repositorio/Construcción ######
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
