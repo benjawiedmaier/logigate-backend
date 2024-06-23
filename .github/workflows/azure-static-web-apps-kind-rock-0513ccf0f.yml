@@ -20,18 +20,16 @@ jobs:
           submodules: true
           lfs: false
 
-      - name: Use Node.js 20.x
+      - name: Set up Node.js 20.x
         uses: actions/setup-node@v2
         with:
           node-version: '20.x'
 
-      - name: Install Dependencies
-        run: npm install
-        working-directory: ./path/to/your/app # Ajusta la ruta según la estructura de tu proyecto
-
-      - name: Build Application
-        run: npm run build  # Ajusta el comando según cómo se construye tu aplicación
-        working-directory: ./path/to/your/app # Ajusta la ruta según la estructura de tu proyecto
+      - name: Install Dependencies and Build Application
+        run: |
+          npm install
+          npm run build
+        working-directory: ./path/to/your/app  # Ajusta la ruta según la estructura de tu proyecto
 
       - name: Deploy to Azure Static Web Apps
         id: builddeploy
@@ -58,5 +56,6 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_KIND_ROCK_0513CCF0F }}
           action: "close"
+
 
 
