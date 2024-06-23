@@ -29,7 +29,7 @@ jobs:
         run: |
           npm install
           npm run build
-        working-directory: ./path/to/your/app  # Ajusta la ruta según la estructura de tu proyecto
+        working-directory: ./server.js  # Ajusta la ruta según la estructura de tu proyecto
 
       - name: Deploy to Azure Static Web Apps
         id: builddeploy
