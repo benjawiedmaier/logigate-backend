@@ -19,11 +19,21 @@ jobs:
         with:
           submodules: true
           lfs: false
-      - name: Set up Node.js 20.x
+
+      - name: Use Node.js 20.x
         uses: actions/setup-node@v2
         with:
           node-version: '20.x'
-      - name: Build And Deploy
+
+      - name: Install Dependencies
+        run: npm install
+        working-directory: ./path/to/your/app # Ajusta la ruta según la estructura de tu proyecto
+
+      - name: Build Application
+        run: npm run build  # Ajusta el comando según cómo se construye tu aplicación
+        working-directory: ./path/to/your/app # Ajusta la ruta según la estructura de tu proyecto
+
+      - name: Deploy to Azure Static Web Apps
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
         with:
@@ -31,7 +41,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
           app_location: "/" # Ruta de la aplicación
-          ###### Configuraciones del Repositorio/Construcción - Estos valores se pueden configurar según los requisitos de tu aplicación. ######
+          ###### Configuraciones del Repositorio/Construcción - Ajusta según los requisitos de tu aplicación. ######
           # Para obtener más información sobre las configuraciones del flujo de trabajo de Static Web App, visita: https://aka.ms/swaworkflowconfig
           api_location: "" # Ruta del código fuente del API - opcional
           output_location: "" # Directorio de contenido de la aplicación construida - opcional
@@ -48,4 +58,5 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_KIND_ROCK_0513CCF0F }}
           action: "close"
+
 
