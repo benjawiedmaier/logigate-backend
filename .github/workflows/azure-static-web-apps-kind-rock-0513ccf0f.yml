@@ -28,7 +28,7 @@ jobs:
       - name: Install Dependencies and Build Application
         run: |
           npm install
-          # No es necesario construir nada para un servidor estático como Azure Static Web Apps
+          npm run build  # Asegúrate de que este comando sea el correcto para construir tu aplicación Next.js
         working-directory: ./  # Ajusta según la estructura de tu proyecto
 
       - name: Deploy to Azure Static Web Apps
@@ -38,7 +38,7 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_KIND_ROCK_0513CCF0F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-          app_location: "/"  # Ruta de la aplicación
+          app_location: "out"  # Ajusta la ubicación de la carpeta de salida de tu construcción Next.js
           ###### Configuraciones del Repositorio/Construcción - Ajusta según los requisitos de tu aplicación. ######
           # Para obtener más información sobre las configuraciones del flujo de trabajo de Static Web App, visita: https://aka.ms/swaworkflowconfig
           api_location: ""  # Ruta del código fuente del API - opcional
