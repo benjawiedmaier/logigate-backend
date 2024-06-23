@@ -28,7 +28,7 @@ jobs:
       - name: Install Dependencies and Build Application
         run: |
           npm install
-          npm run build
+          npm start build
         working-directory: ./ruta/a/tu/proyecto  # Ajusta según la estructura de tu proyecto Next.js
 
       - name: Deploy to Azure Static Web Apps
