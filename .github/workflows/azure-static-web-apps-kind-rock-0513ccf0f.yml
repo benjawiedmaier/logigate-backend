@@ -28,8 +28,8 @@ jobs:
       - name: Install Dependencies and Build Application
         run: |
           npm install
-          npm run build  # Asegúrate de que este comando sea el correcto para construir tu aplicación Next.js
-        working-directory: ./  # Ajusta según la estructura de tu proyecto
+          npm run build
+        working-directory: ./ruta/a/tu/proyecto  # Ajusta según la estructura de tu proyecto Next.js
 
       - name: Deploy to Azure Static Web Apps
         id: builddeploy
@@ -56,3 +56,4 @@ jobs:
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_KIND_ROCK_0513CCF0F }}
           action: "close"
+
